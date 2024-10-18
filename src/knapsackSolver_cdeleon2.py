@@ -2,74 +2,84 @@ import csv
 import argparse
 import time
 
-def knapsack_solver(total_value, coins):
-    #Sort coins in descending order to prioritize larger coins when backtracing
-    coins.sort(reverse=True)
+def knapsack_solver(total_value, coin_data):
+    """
+    Knapsack solver for the given total value and coins with counts
+    coin_data is a list of tuples where each tuple is (coin_value, coin_count)
+    """
 
-    #Create a DP array 
+    #Use a DP array
     dp = [False] * (total_value + 1)
-    dp[0] = True  #Base case: value of 0 can always be achieved
+    dp[0] = True  #Base case: a value of 0 can always be achieved
 
-    #create an array that stores whether each value is achievable
-    for coin in coins:
-        for value in range(coin, total_value + 1):
-            if dp[value - coin]:
-                dp[value] = True
+    #Track which coins are used at each step
+    used_coins = [{} for _ in range(total_value + 1)] 
 
-    #if no solution, return false
+    #DP for loop to update achievable values
+    for coin_value, max_count in coin_data:
+        for value in range(total_value, coin_value - 1, -1):
+            for count in range(1, max_count + 1):
+                prev_value = value - coin_value * count
+                if prev_value >= 0 and dp[prev_value]:
+                    dp[value] = True
+                    #Update used coins count
+                    used_coins[value] = used_coins[prev_value].copy()
+                    used_coins[value][coin_value] = (
+                        used_coins[value].get(coin_value, 0) + count
+                    )
+
+    #check that solutione exists
     if not dp[total_value]:
-        return False, []
+        return False, {} 
 
-    #Backtrack to find the combination of coins used prioritizing larger coins first...greedy backtracing
-    coin_combination = []
-    current_value = total_value
+    #retrive coin counts
+    solution = used_coins[total_value]
 
-    while current_value > 0:
-        for coin in coins:
-            if current_value >= coin and dp[current_value - coin]:
-                coin_combination.append(coin)
-                current_value -= coin
-                break
-
-    return True, coin_combination
+    return True, solution  
 
 def read_testcases_from_csv(filename):
+    """
+    Read test cases from a CSV file
+    Remember the Format: case_type, total_value, coin1_value, coin1_count, coin2_value, coin2_count, ...
+    """
     test_cases = []
     with open(filename, newline='') as csvfile:
         reader = csv.reader(csvfile)
         for row in reader:
-            case_type = row[0]  #check for small, medium, or large
-            total_value = int(row[1])  #value we want to match
-            coins = list(map(int, row[2:]))  #coin denominations
-            test_cases.append((case_type, total_value, coins))
+            case_type = row[0]  #Check for small, medium, large
+            total_value = int(row[1])  #target value
+
+            #Parse coin-value and coin-count pairs
+            coin_data = [(int(row[i]), int(row[i + 1])) for i in range(2, len(row), 2)]
+            test_cases.append((case_type, total_value, coin_data))
+
     return test_cases
 
 def main():
-    #Using argparse to accept cmd line arguments
+    #Use argparse to accept cmd line args
     parser = argparse.ArgumentParser(description="Knapsack solver for CSV input files.")
     parser.add_argument("csvfile", type=str, help="The CSV file containing knapsack test cases.")
     
-    #Parse arguments
     args = parser.parse_args()
 
-    #Read testcase from csv file specified in cmd line
+    #read in testcase
     test_cases = read_testcases_from_csv(args.csvfile)
 
     #Iterate over test cases and solve
-    for case_type, total_value, coins in test_cases:
-        print(f"Solving knapsack for {case_type} case with total value: {total_value} and coins: {coins}")
+    for case_type, total_value, coin_data in test_cases:
+        print(f"Solving knapsack for {case_type} case with total value: {total_value} and coins: {coin_data}")
 
-        #Start a timer to measure how long each case takes
+        #start timer to calculate complexity
         start_time = time.perf_counter()
         
-        solution_exists, coin_combination = knapsack_solver(total_value, coins)
+        solution_exists, coin_combination = knapsack_solver(total_value, coin_data)
 
-        #End the timer
+        #End timer
         end_time = time.perf_counter()
-        execution_time = (end_time - start_time) * 1e6  # Convert time to microseconds
+        execution_time = (end_time - start_time) * 1e6  #Convert time to ms
 
         if solution_exists:
-            #formatting the testcases in a way that's easier for the verifier to parse
+            #Formatting the test cases in a way that's easier for the verifier to parse
             print(f"A solution exists for the {case_type} case with total value: {total_value}")
             formatted_output = {"target": total_value, "combination": coin_combination}
             print(formatted_output)

@@ -1,91 +1,84 @@
-import time
 import csv
 import argparse
+import time
 import matplotlib.pyplot as plt
 
-#Same Knapsack solver function from solver script
-def knapsack_solver(total_value, coins):
-    coins.sort(reverse=True)
+def knapsack_solver(total_value, coin_data):
+    """
+    Knapsack solver for the given total value and coins with counts.
+    coin_data is a list of tuples where each tuple is (coin_value, coin_count).
+    """
     dp = [False] * (total_value + 1)
-    dp[0] = True 
+    dp[0] = True  # Base case: a value of 0 can always be achieved
 
-    for coin in coins:
-        for value in range(coin, total_value + 1):
-            if dp[value - coin]:
-                dp[value] = True
+    used_coins = [{} for _ in range(total_value + 1)]  # Track coins used
+
+    for coin_value, max_count in coin_data:
+        for value in range(total_value, coin_value - 1, -1):
+            for count in range(1, max_count + 1):
+                prev_value = value - coin_value * count
+                if prev_value >= 0 and dp[prev_value]:
+                    dp[value] = True
+                    used_coins[value] = used_coins[prev_value].copy()
+                    used_coins[value][coin_value] = (
+                        used_coins[value].get(coin_value, 0) + count
+                    )
 
     if not dp[total_value]:
-        return False, []
+        return False, {}
 
-    coin_combination = []
-    current_value = total_value
+    solution = used_coins[total_value]
+    return True, solution
 
-    while current_value > 0:
-        for coin in coins:
-            if current_value >= coin and dp[current_value - coin]:
-                coin_combination.append(coin)
-                current_value -= coin
-                break
-
-    return True, coin_combination
-
-#same read test case from csv from solver script
 def read_testcases_from_csv(filename):
+    """
+    Read test cases from a CSV file.
+    Format: case_type, total_value, coin1_value, coin1_count, ...
+    """
     test_cases = []
     with open(filename, newline='') as csvfile:
         reader = csv.reader(csvfile)
         for row in reader:
             case_type = row[0]
             total_value = int(row[1])
-            coins = list(map(int, row[2:]))
-            test_cases.append((case_type, total_value, coins))
+            coin_data = [(int(row[i]), int(row[i + 1])) for i in range(2, len(row), 2)]
+            test_cases.append((case_type, total_value, coin_data))
     return test_cases
 
-#Collect timings for each test case similar to the iteration in the main function of the solver script
-def run_and_collect_timings(test_cases):
-    timings = [] 
-
-    for _, total_value, coins in test_cases:
-        #Start timer
-        start_time = time.perf_counter()
-
-        knapsack_solver(total_value, coins)
-
-        # End the timer
-        end_time = time.perf_counter()
-        execution_time = (end_time - start_time) * 1e6
-
-        #Store the target value and execution time
-        timings.append((total_value, execution_time))
-
-    return timings
-
-#plot
-def plot_timings(timings):
-    target_values = [size for size, _ in timings]  #X-axis: Target values used as size
-    execution_times = [time for _, time in timings]  #Y-axis: Execution times used as times obvsly
-
-    #create scatter plot
-    plt.scatter(target_values, execution_times, color='blue', label="Execution Time")
-
-    plt.xlabel("Problem Size (Target Value)")
-    plt.ylabel("Execution Time (microseconds)")
-    plt.title("Knapsack Solver Execution Time vs. Problem Size")
-    plt.grid(True)
-    plt.legend()
-    plt.show()
-
 def main():
-    parser = argparse.ArgumentParser(description="Knapsack solver for CSV input files.")
+    parser = argparse.ArgumentParser(description="Knapsack solver and plotter for CSV input files.")
     parser.add_argument("csvfile", type=str, help="The CSV file containing knapsack test cases.")
     args = parser.parse_args()
 
-    #Read test cases and collect timings
     test_cases = read_testcases_from_csv(args.csvfile)
-    timings = run_and_collect_timings(test_cases)
 
-    #Plot the timings
-    plot_timings(timings)
+    total_coins_list = []  #X-axis data
+    execution_times = []   #Y-axis data
+    colors = []            #Color for solution found or not
+
+    for case_type, total_value, coin_data in test_cases:
+        total_coins = sum(count for _, count in coin_data)  #Total coins available
+
+        start_time = time.perf_counter()
+        solution_exists, _ = knapsack_solver(total_value, coin_data)
+        end_time = time.perf_counter()
+        execution_time = (end_time - start_time) * 1e6  #Convert to ms
+
+        total_coins_list.append(total_coins)
+        execution_times.append(execution_time)
+
+        if solution_exists:
+            colors.append('green')  # Solution found
+        else:
+            colors.append('red')  # No solution found
+
+    #Plot results
+    plt.scatter(total_coins_list, execution_times, c=colors)
+    plt.xlabel("Total Number of Coins")
+    plt.ylabel("Execution Time (microseconds)")
+    plt.title("Knapsack Solver Execution Time vs Total Coins")
+    plt.legend(["Solution Found", "No Solution"], loc="upper right")
+    plt.show()
 
 if __name__ == "__main__":
     main()

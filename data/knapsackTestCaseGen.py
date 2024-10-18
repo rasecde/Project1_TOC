@@ -10,8 +10,9 @@ def main():
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='Creates a given number each of small, medium, and large test cases for the knapsack problem.',
     epilog=textwrap.dedent('''
-        The range for total value, number of coins, and coin size can be configured within the code.
-        The cases are in format "casetype, totalvalue, coin1value, coin2value, coin3value,...'''))
+            Each case specifies the target value, coin types, and the quantity of each coin available.
+            Format: "casetype, target_value, coin1_value, quantity1, coin2_value, quantity2, ..."
+        '''))
   
   parser.add_argument("--file", "-f", required=True, type=argparse.FileType('w'),
                       help="File to print test cases to (Will overwrite data).")
@@ -27,30 +28,34 @@ def main():
   
   # Otherwise, print test cases to file
 
-  # Set the total value range for the small, medium, and large test cases
-  # Format: [[easy min val, easy max val], [med min, med max], [large min, large max]]
-  testcaseTotalValueRange = [[0, 1e3], [1e4, 1e5], [1e6, 1e7]]
-  # convert float values to ints
-  testcaseTotalValueRange = [[int(x[0]), int(x[1])] for x in testcaseTotalValueRange]
-  
-  # Set the maximum coin value for the small, medium, and large test cases
-  # Default is [25, 25, 25] to make them all 25 cents, but could be changed
-  testcaseMaxCoinValue = [25, 25, 25]
+  # Set ranges for target values and total coin quantities for each test case type
+    # Format: [[min_target, max_target], [min_coins, max_coins]]
+  testcaseSettings = [
+    [[50, 200], [10, 20]],  # Small: target between 50-200, coin values between 10-20
+    [[500, 2000], [30, 60]],  # Medium: target between 500-2000, coin values between 20-50
+    [[5000, 20000], [300, 800]]  # Large: target between 5000-20000, coin values between 500-1000
+]
 
-  # Set the number of coin values to generate (default is 4)
-  numCoins = 4
+
+  # Set the coin values that are not multiples of each other
+  coin_values = [3, 7, 11, 13]
 
   # Set the case types
   testcaseTypes = ["Small", "Medium", "Large"]
 
   # Set randomization seed
   random.seed(datetime.now().timestamp())
-  for testSize, vals in enumerate(testcaseTotalValueRange):
-    for _testcase in range(args.size):
-      args.file.write(f"{testcaseTypes[testSize]}")
-      args.file.write(f", {random.randint(testcaseTotalValueRange[testSize][0], testcaseTotalValueRange[testSize][1])}")
-      for coin in range(numCoins):
-        args.file.write(f", {random.randint(1, testcaseMaxCoinValue[testSize])}")
+  
+  for testSize, (target_range, coin_quantity_range) in enumerate(testcaseSettings):
+    for _ in range(args.size):
+      target_value = random.randint(*target_range)
+      args.file.write(f"{testcaseTypes[testSize]}, {target_value}")
+
+      # Generate a random quantity for each coin type
+      for coin_value in coin_values:
+        quantity = random.randint(*coin_quantity_range)
+        args.file.write(f", {coin_value}, {quantity}")
+
       args.file.write("\n")
 
   # Close the file once we are done
